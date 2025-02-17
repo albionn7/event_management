@@ -1,10 +1,10 @@
-import { model, models, Schema } from "mongoose";
+import { Document, Schema, model, models } from "mongoose";
 
 export interface IEvent extends Document {
   _id: string;
   title: string;
   description?: string;
-  location?: Location;
+  location?: string;
   createdAt: Date;
   imageUrl: string;
   startDateTime: Date;
