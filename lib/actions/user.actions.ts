@@ -4,22 +4,36 @@ import { revalidatePath } from "next/cache";
 
 import { connectToDatabase } from "@/lib/database";
 import User from "@/lib/database/models/user.model";
+import Order from "@/lib/database/models/order.model";
 import Event from "@/lib/database/models/event.model";
 import { handleError } from "@/lib/utils";
 
 import { CreateUserParams, UpdateUserParams } from "@/types";
-import Order from "../database/models/order.model";
 
-export async function createUser(user: CreateUserParams) {
+// export const createUser = async (user: CreateUserParams) => {
+//   try {
+//     await connectToDatabase();
+
+//     const newUser = await User.create(user);
+//     return JSON.parse(JSON.stringify(newUser));
+//   } catch (error) {
+//     handleError(error);
+//   }
+// };
+export const createUser = async (user: CreateUserParams) => {
   try {
     await connectToDatabase();
+    console.log("🔍 Attempting to create user in MongoDB:", user);
 
     const newUser = await User.create(user);
+
+    console.log("✅ User successfully created:", newUser);
     return JSON.parse(JSON.stringify(newUser));
   } catch (error) {
-    handleError(error);
+    console.error("❌ Error creating user in MongoDB:", error);
+    throw new Error("Failed to create user in MongoDB"); // Ensure the error is not swallowed
   }
-}
+};
 
 export async function getUserById(userId: string) {
   try {
