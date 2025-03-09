@@ -16,6 +16,7 @@ import {
   GetEventsByUserParams,
   GetRelatedEventsByCategoryParams,
 } from "@/types";
+import { auth } from "@clerk/nextjs/server";
 
 const getCategoryByName = async (name: string) => {
   return Category.findOne({ name: { $regex: name, $options: "i" } });
@@ -33,19 +34,20 @@ const populateEvent = (query: any) => {
 
 // CREATE
 export async function createEvent({ userId, event, path }: CreateEventParams) {
+  const { sessionClaims } = await auth();
+
   try {
     await connectToDatabase();
 
     const organizer = await User.findById(userId);
     if (!organizer) throw new Error("Organizer not found");
 
-    console.log({ organizer });
     const newEvent = await Event.create({
       ...event,
       category: event.categoryId,
       organizer: userId,
     });
-    // revalidatePath(path);
+    revalidatePath(path);
 
     return JSON.parse(JSON.stringify(newEvent));
   } catch (error) {
