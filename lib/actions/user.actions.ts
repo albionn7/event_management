@@ -1,100 +1,67 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-
 import { connectToDatabase } from "@/lib/database";
-import User from "@/lib/database/models/user.model";
 import Order from "@/lib/database/models/order.model";
 import Event from "@/lib/database/models/event.model";
 import { handleError } from "@/lib/utils";
 
-import { CreateUserParams, UpdateUserParams } from "@/types";
+// Since users are managed by Clerk, we don't need to create/update/delete users in MongoDB.
+// Instead, we'll handle user-related operations using Clerk's API.
 
-// export const createUser = async (user: CreateUserParams) => {
-//   try {
-//     await connectToDatabase();
-
-//     const newUser = await User.create(user);
-//     return JSON.parse(JSON.stringify(newUser));
-//   } catch (error) {
-//     handleError(error);
-//   }
-// };
-export const createUser = async (user: CreateUserParams) => {
-  try {
-    await connectToDatabase();
-    console.log("🔍 Attempting to create user in MongoDB:", user);
-
-    const newUser = await User.create(user);
-
-    console.log("✅ User successfully created:", newUser);
-    return JSON.parse(JSON.stringify(newUser));
-  } catch (error) {
-    console.error("❌ Error creating user in MongoDB:", error);
-    throw new Error("Failed to create user in MongoDB"); // Ensure the error is not swallowed
-  }
-};
-
-export async function getUserById(userId: string) {
+// Unlink relationships when a user is deleted (e.g., via Clerk's webhooks)
+export async function handleUserDeletion(clerkId: string) {
   try {
     await connectToDatabase();
 
-    const user = await User.findById(userId);
+    // Find events and orders associated with the user (if any)
+    const events = await Event.find({ organizer: clerkId });
+    const orders = await Order.find({ buyer: clerkId });
 
-    if (!user) throw new Error("User not found");
-    return JSON.parse(JSON.stringify(user));
-  } catch (error) {
-    handleError(error);
-  }
-}
-
-export async function updateUser(clerkId: string, user: UpdateUserParams) {
-  try {
-    await connectToDatabase();
-
-    const updatedUser = await User.findOneAndUpdate({ clerkId }, user, {
-      new: true,
-    });
-
-    if (!updatedUser) throw new Error("User update failed");
-    return JSON.parse(JSON.stringify(updatedUser));
-  } catch (error) {
-    handleError(error);
-  }
-}
-
-export async function deleteUser(clerkId: string) {
-  try {
-    await connectToDatabase();
-
-    // Find user to delete
-    const userToDelete = await User.findOne({ clerkId });
-
-    if (!userToDelete) {
-      throw new Error("User not found");
-    }
-
-    // Unlink relationships
+    // Unlink the user from events and orders
     await Promise.all([
-      // Update the 'events' collection to remove references to the user
       Event.updateMany(
-        { _id: { $in: userToDelete.events } },
-        { $pull: { organizer: userToDelete._id } }
+        { _id: { $in: events.map((event) => event._id) } },
+        { $unset: { organizer: 1 } } // Remove the organizer field
       ),
-
-      // Update the 'orders' collection to remove references to the user
       Order.updateMany(
-        { _id: { $in: userToDelete.orders } },
-        { $unset: { buyer: 1 } }
+        { _id: { $in: orders.map((order) => order._id) } },
+        { $unset: { buyer: 1 } } // Remove the buyer field
       ),
     ]);
 
-    // Delete user
-    const deletedUser = await User.findByIdAndDelete(userToDelete._id);
-    revalidatePath("/");
-
-    return deletedUser ? JSON.parse(JSON.stringify(deletedUser)) : null;
+    console.log(
+      `✅ Successfully unlinked user ${clerkId} from events and orders`
+    );
   } catch (error) {
+    console.error("❌ Error handling user deletion:", error);
+    handleError(error);
+  }
+}
+
+// Fetch user details from Clerk (if needed)
+export async function fetchUserDetails(clerkId: string) {
+  try {
+    const response = await fetch(`https://api.clerk.dev/v1/users/${clerkId}`, {
+      headers: {
+        Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch user details from Clerk");
+    }
+
+    const user = await response.json();
+    return {
+      id: user.id,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      email: user.email_addresses[0].email_address,
+      profileImageUrl: user.profile_image_url,
+    };
+  } catch (error) {
+    console.error("❌ Error fetching user details from Clerk:", error);
     handleError(error);
   }
 }

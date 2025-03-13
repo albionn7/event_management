@@ -9,8 +9,13 @@ type UpdateEventProps = {
 };
 
 const UpdateEvent = async ({ params: { id } }: UpdateEventProps) => {
-  const { sessionClaims } = await auth();
-  const userId = sessionClaims?.userId as string;
+  // const { sessionClaims } = await auth();
+  // const userId = sessionClaims?.userId as string;
+  const { userId } = await auth();
+  if (!userId) {
+    throw new Error("User ID is not available");
+  }
+
   const event = await getEventById(id);
 
   return (

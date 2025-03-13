@@ -13,10 +13,13 @@ type CardProps = {
 };
 
 const Card = async ({ event, hasOrderLink, hidePrice }: CardProps) => {
-  const { sessionClaims } = await auth();
-  const userId = sessionClaims?.userId as string;
-
-  const isEventCreator = userId === event.organizer._id.toString();
+  const { userId } = await auth();
+  if (!userId) {
+    throw new Error("User ID is not available");
+  }
+  console.log("event");
+  console.log(event);
+  const isEventCreator = userId === event.organizer?.id;
 
   return (
     <div className="group relative flex min-h-[380px] w-full max-w-[400px] flex-col overflow-hidden rounded-xl bg-white shadow-md transition-all hover:shadow-lg md:min-h-[438px]">
@@ -48,7 +51,7 @@ const Card = async ({ event, hasOrderLink, hidePrice }: CardProps) => {
             <span className="p-semibold-14 w-min rounded-full bg-green-100 px-4 py-1 text-green-60">
               {event.isFree ? "FREE" : `$${event.price}`}
             </span>
-            <p className="p-semibold-14 w-min rounded-full bg-grey-500/10 px-4 py-1 text-grey-500 line-clamp-1">
+            <p className="p-semibold-14 w-fit rounded-full bg-grey-500/10 px-4 py-1 text-grey-500 line-clamp-1 w">
               {event.category.name}
             </p>
           </div>
@@ -64,11 +67,13 @@ const Card = async ({ event, hasOrderLink, hidePrice }: CardProps) => {
           </p>
         </Link>
 
-        <div className="flex-between w-full">
+        <div className="flex-between mt-7 w-full">
           <p className="p-medium-14 md:p-medium-16 text-grey-600">
+            <span className="p-medium-14 md:p-medium-16 font-semibold text-gray-900 ">
+              Organizer:
+            </span>{" "}
             {event.organizer.firstName} {event.organizer.lastName}
           </p>
-
           {hasOrderLink && (
             <Link href={`/orders?eventId=${event._id}`} className="flex gap-2">
               <p className="text-primary-500">Order Details</p>

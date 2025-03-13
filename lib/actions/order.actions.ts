@@ -13,11 +13,12 @@ import { connectToDatabase } from "../database";
 import Order from "../database/models/order.model";
 import Event from "../database/models/event.model";
 import { ObjectId } from "mongodb";
-import User from "../database/models/user.model";
 
+// Initialize Stripe
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+// CHECKOUT ORDER
 export const checkoutOrder = async (order: CheckoutOrderParams) => {
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
   const price = order.isFree ? 0 : Number(order.price) * 100;
 
   try {
@@ -36,7 +37,7 @@ export const checkoutOrder = async (order: CheckoutOrderParams) => {
       ],
       metadata: {
         eventId: order.eventId,
-        buyerId: order.buyerId,
+        buyerId: order.buyerId, // Store clerkId as buyerId
       },
       mode: "payment",
       success_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/profile`,
@@ -49,6 +50,7 @@ export const checkoutOrder = async (order: CheckoutOrderParams) => {
   }
 };
 
+// CREATE ORDER
 export const createOrder = async (order: CreateOrderParams) => {
   try {
     await connectToDatabase();
@@ -56,7 +58,7 @@ export const createOrder = async (order: CreateOrderParams) => {
     const newOrder = await Order.create({
       ...order,
       event: order.eventId,
-      buyer: order.buyerId,
+      buyer: order.buyerId, // Store clerkId as buyer
     });
 
     return JSON.parse(JSON.stringify(newOrder));
@@ -78,15 +80,7 @@ export async function getOrdersByEvent({
 
     const orders = await Order.aggregate([
       {
-        $lookup: {
-          from: "users",
-          localField: "buyer",
-          foreignField: "_id",
-          as: "buyer",
-        },
-      },
-      {
-        $unwind: "$buyer",
+        $match: { event: eventObjectId }, // Match orders for the event
       },
       {
         $lookup: {
@@ -106,22 +100,28 @@ export async function getOrdersByEvent({
           createdAt: 1,
           eventTitle: "$event.title",
           eventId: "$event._id",
-          buyer: {
-            $concat: ["$buyer.firstName", " ", "$buyer.lastName"],
-          },
+          buyerId: "$buyer", // Include buyerId (clerkId)
         },
       },
       {
         $match: {
-          $and: [
-            { eventId: eventObjectId },
-            { buyer: { $regex: RegExp(searchString, "i") } },
-          ],
+          buyerId: { $regex: RegExp(searchString, "i") }, // Filter by buyerId
         },
       },
     ]);
 
-    return JSON.parse(JSON.stringify(orders));
+    // Fetch buyer details from Clerk for each order
+    const ordersWithBuyerDetails = await Promise.all(
+      orders.map(async (order) => {
+        const buyerDetails = await fetchUserDetails(order.buyerId);
+        return {
+          ...order,
+          buyer: `${buyerDetails.firstName} ${buyerDetails.lastName}`,
+        };
+      })
+    );
+
+    return JSON.parse(JSON.stringify(ordersWithBuyerDetails));
   } catch (error) {
     handleError(error);
   }
@@ -137,32 +137,66 @@ export async function getOrdersByUser({
     await connectToDatabase();
 
     const skipAmount = (Number(page) - 1) * limit;
-    const conditions = { buyer: userId };
+    const conditions = { buyer: userId }; // Use clerkId as buyer
 
-    const orders = await Order.distinct("event._id")
-      .find(conditions)
+    const orders = await Order.find(conditions)
       .sort({ createdAt: "desc" })
       .skip(skipAmount)
       .limit(limit)
       .populate({
         path: "event",
         model: Event,
-        populate: {
-          path: "organizer",
-          model: User,
-          select: "_id firstName lastName",
-        },
+        select: "title organizer", // Include event title and organizer
       });
 
-    const ordersCount = await Order.distinct("event._id").countDocuments(
-      conditions
+    const ordersCount = await Order.countDocuments(conditions);
+
+    // Fetch organizer details from Clerk for each event
+    const ordersWithOrganizerDetails = await Promise.all(
+      orders.map(async (order) => {
+        const organizerDetails = await fetchUserDetails(order.event.organizer);
+        return {
+          ...order.toObject(),
+          event: {
+            ...order.event.toObject(),
+            organizer: organizerDetails,
+          },
+        };
+      })
     );
 
     return {
-      data: JSON.parse(JSON.stringify(orders)),
+      data: JSON.parse(JSON.stringify(ordersWithOrganizerDetails)),
       totalPages: Math.ceil(ordersCount / limit),
     };
   } catch (error) {
     handleError(error);
+  }
+}
+
+// Helper function to fetch user details from Clerk
+async function fetchUserDetails(clerkId: string) {
+  try {
+    const response = await fetch(`https://api.clerk.dev/v1/users/${clerkId}`, {
+      headers: {
+        Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch user details from Clerk");
+    }
+
+    const user = await response.json();
+    return {
+      id: user.id,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      email: user.email_addresses[0].email_address,
+      profileImageUrl: user.profile_image_url,
+    };
+  } catch (error) {
+    console.error("❌ Error fetching user details from Clerk:", error);
+    throw error;
   }
 }

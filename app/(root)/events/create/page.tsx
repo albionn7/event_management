@@ -2,12 +2,11 @@ import EventForm from "@/components/shared/EventForm";
 import { auth } from "@clerk/nextjs/server";
 
 const CreateEvent = async () => {
-  // const { userId } = await auth();
-  const { sessionClaims } = await auth();
-  // console.log(sessionClaims);
-  const userId = sessionClaims?.userId as string;
+  const { userId } = await auth();
+  if (!userId) {
+    throw new Error("User ID is not available");
+  }
 
-  // const userIdString = userId ?? "";
   console.log("User ID:", userId);
 
   return (
