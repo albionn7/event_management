@@ -15,7 +15,7 @@ type CardProps = {
 const Card = async ({ event, hasOrderLink, hidePrice }: CardProps) => {
   const { userId } = await auth();
   if (!userId) {
-    throw new Error("User ID is not available");
+    throw new Error("User ID is not available 4");
   }
   console.log("event");
   console.log(event);
