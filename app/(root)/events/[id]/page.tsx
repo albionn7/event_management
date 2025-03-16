@@ -31,7 +31,8 @@ const EventDetails = async ({
             alt="hero image"
             width={1000}
             height={1000}
-            className="h-full min-h-[300px] object-cover object-center  rounded-3xl"
+            className="w-full h-auto min-h-[300px] object-cover object-center rounded-3xl"
+            // className="h-full min-h-[300px] object-cover object-center  rounded-3xl"
           />
 
           <div className="flex w-full flex-col gap-8 p-5 md:p-10">
@@ -47,16 +48,15 @@ const EventDetails = async ({
                     {event.category.name}
                   </p>
                 </div>
-              </div>
 
-              <p className="p-medium-18 ml-2 mt-2 sm:mt-0">
-                by{" "}
-                <span className="text-primary-500">
-                  {event.organizer.firstName} {event.organizer.lastName}
-                </span>
-              </p>
+                <p className="p-medium-18 ml-2 mt-2 sm:mt-0">
+                  by{" "}
+                  <span className="text-primary-500">
+                    {event.organizer.firstName} {event.organizer.lastName}
+                  </span>
+                </p>
+              </div>
             </div>
-            {/* </div> */}
 
             <CheckoutButton event={event} />
 
