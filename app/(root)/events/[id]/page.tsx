@@ -24,7 +24,7 @@ const EventDetails = async ({
 
   return (
     <>
-      <section className="flex justify-center py-10 bg-primary-50 bg-dotted-pattern bg-contain ">
+      <section className="flex justify-center py-10 bg-primary-50 bg-dotted-pattern ">
         <div className="grid grid-cols-1 md:grid-cols-2 2xl:max-w-7xl">
           <Image
             src={event.imageUrl}
