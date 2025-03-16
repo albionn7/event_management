@@ -9,8 +9,6 @@ import Link from "next/link";
 import React from "react";
 
 const ProfilePage = async ({ searchParams }: SearchParamProps) => {
-  // const { sessionClaims } = await auth();
-  // const userId = sessionClaims?.userId as string;
   const { userId } = await auth();
   if (!userId) {
     throw new Error("User ID is not available");
