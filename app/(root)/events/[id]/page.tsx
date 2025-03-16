@@ -24,14 +24,14 @@ const EventDetails = async ({
 
   return (
     <>
-      <section className="flex justify-center py-10 bg-primary-50 bg-dotted-pattern ">
+      <section className="flex justify-center py-10 bg-primary-50 bg-dotted-pattern  bg-contain">
         <div className="grid grid-cols-1 md:grid-cols-2 2xl:max-w-7xl">
           <Image
             src={event.imageUrl}
             alt="hero image"
             width={1000}
             height={1000}
-            className="md:h-full md:min-h-[300px] md:object-cover object-center  rounded-3xl"
+            className="h-full min-h-[300px] object-cover object-center  rounded-3xl"
           />
 
           <div className="flex w-full flex-col gap-8 p-5 md:p-10">
@@ -47,15 +47,16 @@ const EventDetails = async ({
                     {event.category.name}
                   </p>
                 </div>
-
-                <p className="p-medium-18 ml-2 mt-2 sm:mt-0">
-                  by{" "}
-                  <span className="text-primary-500">
-                    {event.organizer.firstName} {event.organizer.lastName}
-                  </span>
-                </p>
               </div>
+
+              <p className="p-medium-18 ml-2 mt-2 sm:mt-0">
+                by{" "}
+                <span className="text-primary-500">
+                  {event.organizer.firstName} {event.organizer.lastName}
+                </span>
+              </p>
             </div>
+            {/* </div> */}
 
             <CheckoutButton event={event} />
 
