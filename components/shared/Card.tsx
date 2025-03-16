@@ -14,13 +14,12 @@ type CardProps = {
 
 const Card = async ({ event, hasOrderLink, hidePrice }: CardProps) => {
   const { userId } = await auth();
-  if (!userId) {
-    throw new Error("User ID is not available 4");
-  }
+
   console.log("event");
   console.log(event);
-  const isEventCreator = userId === event.organizer?.id;
+  const isEventCreator = userId && userId === event.organizer?.id;
 
+  console.log(event.organizer.id, "lala");
   return (
     <div className="group relative flex min-h-[380px] w-full max-w-[400px] flex-col overflow-hidden rounded-xl bg-white shadow-md transition-all hover:shadow-lg md:min-h-[438px]">
       <Link

@@ -11,7 +11,7 @@ type UpdateEventProps = {
 const UpdateEvent = async ({ params: { id } }: UpdateEventProps) => {
   const { userId } = await auth();
   if (!userId) {
-    throw new Error("User ID is not available");
+    throw new Error("User ID is not available 1");
   }
 
   const event = await getEventById(id);
