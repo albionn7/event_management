@@ -22,6 +22,8 @@ const EventDetails = async ({
     page: searchParams.page as string,
   });
 
+  console.log(relatedEvents, "relatedevents");
+
   return (
     <>
       <section className="flex justify-center py-10 bg-primary-50 bg-dotted-pattern  bg-contain">
