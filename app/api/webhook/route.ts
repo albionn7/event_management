@@ -49,11 +49,11 @@ export async function POST(request: Request) {
       console.log("✅ Order created:", newOrder);
       return NextResponse.json({ message: "OK", order: newOrder });
     } catch (err) {
-      console.error("❌ Error creating order:", err);
-      return NextResponse.json(
-        { message: "Database error", error: err.message },
-        { status: 500 }
-      );
+      if (err instanceof Error) {
+        console.error(err.message);
+      } else {
+        console.error("An unknown error occurred", err);
+      }
     }
   }
 
