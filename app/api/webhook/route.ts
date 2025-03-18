@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createOrder } from "@/lib/actions/order.actions";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: undefined,
+  apiVersion: "2025-02-24.acacia",
 });
 
 export async function POST(request: Request) {
