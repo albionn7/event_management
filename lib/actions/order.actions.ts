@@ -15,14 +15,25 @@ import Event from "../database/models/event.model";
 import { ObjectId } from "mongodb";
 
 // Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+// CHECKOUT ORDER
+
+// Initialize Stripe
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error("❌ STRIPE_SECRET_KEY is missing in environment variables.");
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2025-02-24.acacia" as any,
+});
 
 // CHECKOUT ORDER
 export const checkoutOrder = async (order: CheckoutOrderParams) => {
-  const price = order.isFree ? 0 : Number(order.price) * 100;
-
   try {
+    const price = order.isFree ? 0 : Number(order.price) * 100;
+
     const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"], // ✅ Ensure payment method is included
       line_items: [
         {
           price_data: {
@@ -37,16 +48,25 @@ export const checkoutOrder = async (order: CheckoutOrderParams) => {
       ],
       metadata: {
         eventId: order.eventId,
-        buyerId: order.buyerId, // Store clerkId as buyerId
+        buyerId: order.buyerId, // Store Clerk ID as buyerId
       },
       mode: "payment",
       success_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/profile`,
       cancel_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/`,
     });
 
-    redirect(session.url!);
+    // ✅ Log session details for debugging
+    console.log("✅ Stripe Session Created:", session);
+
+    // 🚨 Ensure session ID and URL exist
+    if (!session.id || !session.url) {
+      throw new Error("❌ Stripe session is missing ID or URL.");
+    }
+
+    redirect(session.url);
   } catch (error) {
-    throw error;
+    console.error("❌ Error in checkoutOrder:", error);
+    throw new Error("Failed to create Stripe checkout session.");
   }
 };
 
