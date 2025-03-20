@@ -12,6 +12,8 @@ const CheckoutButton = ({ event }: { event: IEvent }) => {
   const userId = user?.publicMetadata.userId as string;
   console.log(userId, "meta");
   const hasEventFinished = new Date(event.endDateTime) < new Date();
+  console.log("User object:", user);
+  console.log("Extracted userId:", user?.publicMetadata?.userId);
 
   return (
     <div className="flex items-center gap-3">

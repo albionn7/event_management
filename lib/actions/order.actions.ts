@@ -15,20 +15,12 @@ import Event from "../database/models/event.model";
 import { ObjectId } from "mongodb";
 
 // Initialize Stripe
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-// CHECKOUT ORDER
-
-// Initialize Stripe
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("❌ STRIPE_SECRET_KEY is missing in environment variables.");
-}
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-02-24.acacia" as any,
-});
-
-// CHECKOUT ORDER
-// CHECKOUT ORDER
+/**
+ * Creates a Stripe checkout session for an order.
+ * @param order - Order details for checkout.
+ */
 export const checkoutOrder = async (order: CheckoutOrderParams) => {
   const price = order.isFree ? 0 : Number(order.price) * 100;
 
@@ -47,29 +39,33 @@ export const checkoutOrder = async (order: CheckoutOrderParams) => {
         },
       ],
       metadata: {
-        eventId: order.eventId,
-        buyerId: order.buyerId,
+        eventId: order.eventId, // Event ID (string or ObjectId)
+        buyerId: order.buyerId, // Clerk user ID (string)
       },
       mode: "payment",
       success_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/profile`,
       cancel_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/`,
     });
 
-    return { id: session.id, url: session.url }; // ✅ Now returns session ID & URL
+    redirect(session.url!); // Redirect to Stripe checkout page
   } catch (error) {
     throw error;
   }
 };
 
-// CREATE ORDER
+/**
+ * Creates a new order in the database.
+ * @param order - Order details to create.
+ * @returns The created order.
+ */
 export const createOrder = async (order: CreateOrderParams) => {
   try {
     await connectToDatabase();
 
     const newOrder = await Order.create({
       ...order,
-      event: order.eventId,
-      buyer: order.buyerId, // Store clerkId as buyer
+      event: order.eventId, // Event ID (string or ObjectId)
+      buyer: order.buyerId, // Clerk user ID (string)
     });
 
     return JSON.parse(JSON.stringify(newOrder));
@@ -78,7 +74,12 @@ export const createOrder = async (order: CreateOrderParams) => {
   }
 };
 
-// GET ORDERS BY EVENT
+/**
+ * Fetches orders for a specific event.
+ * @param searchString - Search string to filter orders by buyer.
+ * @param eventId - ID of the event to fetch orders for.
+ * @returns A list of orders for the event.
+ */
 export async function getOrdersByEvent({
   searchString,
   eventId,
@@ -90,9 +91,6 @@ export async function getOrdersByEvent({
     const eventObjectId = new ObjectId(eventId);
 
     const orders = await Order.aggregate([
-      {
-        $match: { event: eventObjectId }, // Match orders for the event
-      },
       {
         $lookup: {
           from: "events",
@@ -111,34 +109,32 @@ export async function getOrdersByEvent({
           createdAt: 1,
           eventTitle: "$event.title",
           eventId: "$event._id",
-          buyerId: "$buyer", // Include buyerId (clerkId)
+          buyerId: "$buyer", // Clerk user ID (string)
         },
       },
       {
         $match: {
-          buyerId: { $regex: RegExp(searchString, "i") }, // Filter by buyerId
+          $and: [
+            { eventId: eventObjectId },
+            { buyerId: { $regex: RegExp(searchString, "i") } }, // Search by buyerId
+          ],
         },
       },
     ]);
 
-    // Fetch buyer details from Clerk for each order
-    const ordersWithBuyerDetails = await Promise.all(
-      orders.map(async (order) => {
-        const buyerDetails = await fetchUserDetails(order.buyerId);
-        return {
-          ...order,
-          buyer: `${buyerDetails.firstName} ${buyerDetails.lastName}`,
-        };
-      })
-    );
-
-    return JSON.parse(JSON.stringify(ordersWithBuyerDetails));
+    return JSON.parse(JSON.stringify(orders));
   } catch (error) {
     handleError(error);
   }
 }
 
-// GET ORDERS BY USER
+/**
+ * Fetches orders for a specific user.
+ * @param userId - Clerk user ID to fetch orders for.
+ * @param limit - Number of orders to fetch per page.
+ * @param page - Page number for pagination.
+ * @returns A list of orders for the user.
+ */
 export async function getOrdersByUser({
   userId,
   limit = 3,
@@ -148,7 +144,7 @@ export async function getOrdersByUser({
     await connectToDatabase();
 
     const skipAmount = (Number(page) - 1) * limit;
-    const conditions = { buyer: userId }; // Use clerkId as buyer
+    const conditions = { buyer: userId }; // Clerk user ID (string)
 
     const orders = await Order.find(conditions)
       .sort({ createdAt: "desc" })
@@ -157,57 +153,16 @@ export async function getOrdersByUser({
       .populate({
         path: "event",
         model: Event,
-        select: "title organizer", // Include event title and organizer
+        select: "_id title organizer", // Adjust fields as needed
       });
 
     const ordersCount = await Order.countDocuments(conditions);
 
-    // Fetch organizer details from Clerk for each event
-    const ordersWithOrganizerDetails = await Promise.all(
-      orders.map(async (order) => {
-        const organizerDetails = await fetchUserDetails(order.event.organizer);
-        return {
-          ...order.toObject(),
-          event: {
-            ...order.event.toObject(),
-            organizer: organizerDetails,
-          },
-        };
-      })
-    );
-
     return {
-      data: JSON.parse(JSON.stringify(ordersWithOrganizerDetails)),
+      data: JSON.parse(JSON.stringify(orders)),
       totalPages: Math.ceil(ordersCount / limit),
     };
   } catch (error) {
     handleError(error);
-  }
-}
-
-// Helper function to fetch user details from Clerk
-async function fetchUserDetails(clerkId: string) {
-  try {
-    const response = await fetch(`https://api.clerk.dev/v1/users/${clerkId}`, {
-      headers: {
-        Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch user details from Clerk");
-    }
-
-    const user = await response.json();
-    return {
-      id: user.id,
-      firstName: user.first_name,
-      lastName: user.last_name,
-      email: user.email_addresses[0].email_address,
-      profileImageUrl: user.profile_image_url,
-    };
-  } catch (error) {
-    console.error("❌ Error fetching user details from Clerk:", error);
-    throw error;
   }
 }
