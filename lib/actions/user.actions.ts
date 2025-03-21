@@ -26,7 +26,7 @@ export async function handleUserDeletion(clerkId: string) {
       ),
       Order.updateMany(
         { _id: { $in: orders.map((order) => order._id) } },
-        { $unset: { buyer: 1 } } // Remove the buyer field
+        { $unset: { buyer: "deleted_user" } } // Remove the buyer field
       ),
     ]);
 

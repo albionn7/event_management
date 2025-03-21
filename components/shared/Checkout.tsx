@@ -4,10 +4,13 @@ import { loadStripe } from "@stripe/stripe-js";
 import { IEvent } from "@/lib/database/models/event.model";
 import { Button } from "../ui/button";
 import { checkoutOrder } from "@/lib/actions/order.actions";
+import { auth } from "@clerk/nextjs/server";
+
 //Checkout page
 loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
-const Checkout = ({ event, userId }: { event: IEvent; userId: string }) => {
+const Checkout = async ({ event }: { event: IEvent }) => {
+  const { user } = useUser(); // Get user from Clerk
   useEffect(() => {
     // Check to see if this is a redirect back from Checkout
     const query = new URLSearchParams(window.location.search);
@@ -23,12 +26,16 @@ const Checkout = ({ event, userId }: { event: IEvent; userId: string }) => {
   }, []);
 
   const onCheckout = async () => {
+    if (!user?.id) {
+      console.error("User ID is missing! Cannot proceed with checkout.");
+      return;
+    }
     const order = {
       eventTitle: event.title,
       eventId: event._id,
       price: event.price,
       isFree: event.isFree,
-      buyerId: userId,
+      buyerId: user.id,
     };
 
     await checkoutOrder(order);
